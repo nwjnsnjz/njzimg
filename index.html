@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nj · rare</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Instrument+Serif:ital@0;1&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0a0a0a;
+    --surface: #111111;
+    --border:  #1f1f1f;
+    --border2: #2a2a2a;
+    --text:    #b0b0b0;
+    --muted:   #444;
+    --accent:  #d8d8d8;
+    --r: 16px;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px 16px;
+  }
+
+  #app {
+    width: min(460px, 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22px;
+  }
+
+  header {
+    display: flex;
+    width: 100%;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .wordmark {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--accent);
+  }
+
+  .frame {
+    width: 100%;
+    aspect-ratio: 4/5;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.45s ease;
+    position: absolute;
+    inset: 0;
+  }
+
+  .frame img.visible { opacity: 1; }
+
+  .idle-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .idle-icon { width: 34px; height: 34px; opacity: 0.15; }
+
+  .idle-text {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+  }
+
+  .spinner {
+    display: none;
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 1.5px solid var(--border2);
+    border-top-color: #555;
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .source-badge {
+    position: absolute;
+    bottom: 11px;
+    right: 11px;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 4px 9px;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.35);
+    opacity: 0;
+    transition: opacity 0.35s;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .source-badge.show { opacity: 1; }
+
+  .meta {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    padding: 0 2px;
+    min-height: 14px;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 15px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--r);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    cursor: pointer;
+    transition: background 0.18s, border-color 0.18s, transform 0.1s;
+    outline: none;
+  }
+  .btn:hover { background: #181818; border-color: #333; }
+  .btn:active { transform: scale(0.985); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  .err {
+    font-size: 10px;
+    color: #7a3a3a;
+    letter-spacing: 0.1em;
+    text-align: center;
+    display: none;
+    line-height: 1.6;
+  }
+
+  .pool-info {
+    font-size: 9px;
+    color: #2a2a2a;
+    letter-spacing: 0.1em;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <span class="wordmark">nj · rare</span>
+  </header>
+
+  <div class="frame" id="frame">
+    <div class="idle-state" id="idle">
+      <svg class="idle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.8">
+        <rect x="3" y="3" width="18" height="18" rx="3"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+      <span class="idle-text">press surprise me</span>
+    </div>
+    <div class="spinner" id="spinner"></div>
+    <img id="photo" alt="" onload="onLoad()" onerror="onError()"/>
+    <a id="source-badge" class="source-badge" target="_blank" rel="noopener"></a>
+  </div>
+
+  <div class="meta">
+    <span id="tag-member"></span>
+    <span id="tag-count"></span>
+  </div>
+
+  <button class="btn" id="btn" onclick="surprise()">surprise me</button>
+  <div class="err" id="err"></div>
+  <div class="pool-info" id="pool-info"></div>
+</div>
+
+<script>
+const API_KEY = 'AIzaSyBdwGwnyBhdTzBrmI2ovkQePHz_E-k2Rmg';
+const CX      = '2079176acdaa74ece';
+
+const QUERIES = [
+  { q: 'NewJeans Minji candid rare unreleased photo',     m: 'Minji' },
+  { q: 'NewJeans Hanni rare behind scenes photo',         m: 'Hanni' },
+  { q: 'NewJeans Danielle rare selca photo',              m: 'Danielle' },
+  { q: 'NewJeans Haerin rare candid photo',               m: 'Haerin' },
+  { q: 'NewJeans Hyein rare photo unreleased',            m: 'Hyein' },
+  { q: 'NewJeans Minji fansign rare close up',            m: 'Minji' },
+  { q: 'NewJeans Hanni fansign rare photo',               m: 'Hanni' },
+  { q: 'NewJeans Danielle fansign rare photo',            m: 'Danielle' },
+  { q: 'NewJeans Haerin fansign photo rare',              m: 'Haerin' },
+  { q: 'NewJeans Hyein fansign rare close',               m: 'Hyein' },
+  { q: 'NewJeans Minji airport rare 2023 2024',           m: 'Minji' },
+  { q: 'NewJeans Hanni airport rare outfit',              m: 'Hanni' },
+  { q: 'NewJeans Danielle airport rare photo',            m: 'Danielle' },
+  { q: 'NewJeans Haerin airport rare photo',              m: 'Haerin' },
+  { q: 'NewJeans Minji magazine editorial rare scan',     m: 'Minji' },
+  { q: 'NewJeans Hanni magazine rare editorial',          m: 'Hanni' },
+  { q: 'NewJeans Danielle magazine rare scan photo',      m: 'Danielle' },
+  { q: 'NewJeans Haerin editorial rare photo',            m: 'Haerin' },
+  { q: 'NewJeans Minji rare selca weverse',               m: 'Minji' },
+  { q: 'NewJeans Hanni rare selca weverse',               m: 'Hanni' },
+  { q: 'NewJeans Danielle rare selca weverse',            m: 'Danielle' },
+  { q: 'NewJeans Haerin rare selca weverse',              m: 'Haerin' },
+  { q: 'NewJeans Hyein rare selca weverse',               m: 'Hyein' },
+  { q: 'NewJeans Attention era rare photo 2022',          m: 'NewJeans' },
+  { q: 'NewJeans Hype Boy era rare behind scenes',        m: 'NewJeans' },
+  { q: 'NewJeans OMG era rare photo 2023',                m: 'NewJeans' },
+  { q: 'NewJeans Super Shy era rare behind',              m: 'NewJeans' },
+  { q: 'NewJeans ETA era rare photo',                     m: 'NewJeans' },
+  { q: 'NewJeans Get Up album rare behind scenes',        m: 'NewJeans' },
+  { q: 'NewJeans debut era unreleased rare photo 2022',   m: 'NewJeans' },
+  { q: 'NewJeans practice room rare behind photo',        m: 'NewJeans' },
+  { q: 'NewJeans recording studio rare photo',            m: 'NewJeans' },
+  { q: 'NewJeans music video behind scenes rare',         m: 'NewJeans' },
+  { q: 'NewJeans photocard rare Minji unreleased',        m: 'Minji' },
+  { q: 'NewJeans Danielle photobook rare scan',           m: 'Danielle' },
+  { q: 'NewJeans Haerin photocard rare photo',            m: 'Haerin' },
+  { q: 'NewJeans group rare unreleased high quality',     m: 'NewJeans' },
+  { q: 'NewJeans Minji Hanni rare photo together',        m: 'NewJeans' },
+  { q: 'NewJeans Haerin Hyein rare photo',                m: 'NewJeans' },
+  { q: 'NewJeans cool with you era rare photo',           m: 'NewJeans' },
+  { q: 'NewJeans Minji rare photo theqoo',                m: 'Minji' },
+  { q: 'NewJeans Hanni rare photo pann',                  m: 'Hanni' },
+];
+
+document.getElementById('pool-info').textContent = QUERIES.length + ' queries · pages 2-10 only';
+
+let count = 0, loading = false;
+let usedLinks = new Set();
+
+async function surprise() {
+  if (loading) return;
+  loading = true;
+
+  const btn    = document.getElementById('btn');
+  const spinner = document.getElementById('spinner');
+  const idle   = document.getElementById('idle');
+  const photo  = document.getElementById('photo');
+  const badge  = document.getElementById('source-badge');
+
+  btn.disabled = true;
+  showErr(null);
+  spinner.style.display = 'block';
+  idle.style.display = 'none';
+  photo.classList.remove('visible');
+  badge.classList.remove('show');
+
+  try {
+    const entry = QUERIES[Math.floor(Math.random() * QUERIES.length)];
+    // Always skip page 1 (top results). Pages 2-10 = start 11-91.
+    const start = Math.floor(Math.random() * 81) + 11;
+
+    const url = new URL('https://www.googleapis.com/customsearch/v1');
+    url.searchParams.set('key', API_KEY);
+    url.searchParams.set('cx', CX);
+    url.searchParams.set('q', entry.q);
+    url.searchParams.set('searchType', 'image');
+    url.searchParams.set('num', '10');
+    url.searchParams.set('start', String(start));
+    url.searchParams.set('safe', 'off');
+    url.searchParams.set('imgSize', 'large');
+
+    const res  = await fetch(url.toString());
+    const data = await res.json();
+
+    if (!res.ok) {
+      const msg = data?.error?.message || data?.error?.errors?.[0]?.message || '';
+      const reason = data?.error?.errors?.[0]?.reason || '';
+      if (reason === 'rateLimitExceeded' || msg.toLowerCase().includes('quota exceeded'))
+        throw new Error('daily quota reached (100/day on free tier)');
+      throw new Error(msg || 'api error ' + res.status);
+    }
+
+    const items = data.items || [];
+    if (!items.length) throw new Error('no results — try again');
+
+    const fresh = items.filter(i => !usedLinks.has(i.link));
+    const pool  = fresh.length ? fresh : items;
+    const pick  = pool[Math.floor(Math.random() * pool.length)];
+    usedLinks.add(pick.link);
+
+    document.getElementById('tag-member').textContent = entry.m.toLowerCase();
+    count++;
+    document.getElementById('tag-count').textContent = '#' + String(count).padStart(3, '0');
+
+    try {
+      const domain = new URL(pick.image?.contextLink || pick.link).hostname.replace(/^www\./, '');
+      badge.textContent = domain;
+      badge.href = pick.image?.contextLink || pick.link;
+    } catch(e) {}
+
+    photo.src = pick.link;
+
+  } catch(e) {
+    spinner.style.display = 'none';
+    idle.style.display = 'flex';
+    showErr(e.message);
+    loading = false;
+    btn.disabled = false;
+  }
+}
+
+function showErr(msg) {
+  const el = document.getElementById('err');
+  el.style.display = msg ? 'block' : 'none';
+  el.textContent = msg || '';
+}
+
+function onLoad() {
+  document.getElementById('spinner').style.display = 'none';
+  document.getElementById('photo').classList.add('visible');
+  document.getElementById('source-badge').classList.add('show');
+  loading = false;
+  document.getElementById('btn').disabled = false;
+}
+
+function onError() {
+  document.getElementById('spinner').style.display = 'none';
+  document.getElementById('photo').src = '';
+  document.getElementById('idle').style.display = 'flex';
+  showErr('image failed to load — try again');
+  loading = false;
+  document.getElementById('btn').disabled = false;
+}
+</script>
+</body>
+</html>
